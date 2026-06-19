@@ -4,19 +4,20 @@
 
 It is meant for readable demo documents that stay useful as plain Markdown. It is not a notebook system, a sandbox, or a runner for untrusted code.
 
+Repository: [Jwink3101/md-demo](https://github.com/Jwink3101/md-demo)
+
 Warning: `md-demo` executes code from the document. Run only trusted files.
 
 ## Install
 
-From a source checkout:
+```bash
+pip install md-demo
+```
+
+For development from a source checkout, install in editable mode with test dependencies and verify the checkout:
 
 ```bash
 python -m pip install -e ".[test]"
-```
-
-Verify the checkout:
-
-```bash
 python -m compileall -q src
 pytest
 ```

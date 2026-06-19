@@ -50,6 +50,7 @@ def test_manual_works_without_file(capsys):
     captured = capsys.readouterr()
     assert "Agent authoring checklist" in captured.out
     assert "Run only trusted files" in captured.out
+    assert "pip install md-demo" in captured.out
     assert 'python -m pip install -e ".[test]"' in captured.out
     assert "python -m compileall -q src" in captured.out
     assert "pytest" in captured.out

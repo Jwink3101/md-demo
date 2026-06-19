@@ -18,6 +18,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Jwink3101/md-demo"
+Repository = "https://github.com/Jwink3101/md-demo"
+
 [project.optional-dependencies]
 test = ["pytest>=8"]
 

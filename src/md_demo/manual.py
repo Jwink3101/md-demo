@@ -151,6 +151,16 @@ Print this manual:
 md-demo --manual
 ```
 
+## Project
+
+Repository: [Jwink3101/md-demo](https://github.com/Jwink3101/md-demo)
+
+Install the released package:
+
+```bash
+pip install md-demo
+```
+
 ## Building and verifying
 
 When working from a source checkout, install the project in editable mode with test dependencies:
