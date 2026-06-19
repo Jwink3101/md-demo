@@ -12,7 +12,7 @@ Warning: `md-demo` executes code from the document. Convert and run only documen
 2. Identify whether the document is primarily a Python demo, bash demo, or ordinary documentation.
 3. Add hidden `md-demo` config only when the document should become executable.
 4. Mark only intended executable blocks with `exe`.
-5. Convert expected displayed values to explicit stdout or stderr.
+5. Convert expected displayed values to executable output.
 6. Remove or preserve existing output based on the rules below.
 7. Preview with `md-demo document.md --output -`.
 8. Update in place only after reviewing the preview.
@@ -171,9 +171,9 @@ If the preview is correct, update the document:
 md-demo document.md
 ```
 
-## Convert implicit displays to explicit output
+## Convert implicit displays to executable output
 
-`md-demo` captures stdout and stderr. It does not display the final Python expression automatically.
+`md-demo` captures stdout and stderr. Python executable blocks also display the final expression by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon.
 
 Before:
 
@@ -187,11 +187,11 @@ After:
 
 ````markdown
 ```python exe
-print(value + 1)
+value + 1
 ```
 ````
 
-For tabular data, prefer stable text output:
+For tabular data or other rich objects, prefer stable text output:
 
 ````markdown
 ```python exe
@@ -248,7 +248,7 @@ fi
 - Use `preface-text` only when rendered output needs a visible label.
 - Mark only true demo steps with `exe`.
 - Leave illustrative, partial, unsafe, or cross-language examples without `exe`.
-- Convert Python expression displays to `print(...)`.
+- Keep simple Python expression displays as final expressions, or convert them to `print(...)` when explicit stdout is clearer.
 - Remove nearby output only when it is clearly old demo output.
 - Preserve authored explanations, fixtures, inputs, and expected-output contracts.
 - Preview with `md-demo document.md --output -`.

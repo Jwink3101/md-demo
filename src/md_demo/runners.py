@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+import ast
 import contextlib
 import dataclasses
 import io
 import os
+import pprint
 import re
 import subprocess
 import sys
+import tokenize
 import traceback
 import uuid
 from pathlib import Path
+from typing import Literal
 
 ANSI_RE = re.compile(
     r"(?:\x1B\[[0-?]*[ -/]*[@-~]|\x1B\][^\x07]*(?:\x07|\x1B\\)|[\x00-\x08\x0B\x0C\x0E-\x1F\x7F])"
 )
+DisplayMode = Literal["last-expression", "none"]
 
 
 @dataclasses.dataclass
@@ -35,8 +40,9 @@ class Runner:
 
 
 class PythonRunner(Runner):
-    def __init__(self, cwd: Path):
+    def __init__(self, cwd: Path, display: DisplayMode):
         self.cwd = cwd
+        self.display = display
         self.globals: dict[str, object] = {"__name__": "__md_demo__"}
 
     def run_block(self, code: str) -> BlockResult:
@@ -47,7 +53,7 @@ class PythonRunner(Runner):
         try:
             os.chdir(self.cwd)
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-                exec(code, self.globals, self.globals)
+                self._execute(code)
             self.cwd = Path.cwd()
         except BaseException:
             ok = False
@@ -56,6 +62,48 @@ class PythonRunner(Runner):
         finally:
             os.chdir(old_cwd)
         return BlockResult(clean_output(stdout.getvalue() + stderr.getvalue()), ok)
+
+    def _execute(self, code: str) -> None:
+        if self.display != "last-expression" or final_statement_has_semicolon(code):
+            exec(code, self.globals, self.globals)
+            return
+
+        tree = ast.parse(code)
+        if not tree.body or not isinstance(tree.body[-1], ast.Expr):
+            exec(compile(tree, "<md-demo>", "exec"), self.globals, self.globals)
+            return
+
+        setup = ast.Module(body=tree.body[:-1], type_ignores=tree.type_ignores)
+        if setup.body:
+            exec(compile(setup, "<md-demo>", "exec"), self.globals, self.globals)
+
+        expression = ast.Expression(tree.body[-1].value)
+        value = eval(compile(expression, "<md-demo>", "eval"), self.globals, self.globals)
+        if value is not None:
+            print(pprint.pformat(value))
+
+
+def final_statement_has_semicolon(code: str) -> bool:
+    last_type = None
+    last_string = ""
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(code).readline)
+        for token in tokens:
+            if token.type in {
+                tokenize.COMMENT,
+                tokenize.DEDENT,
+                tokenize.ENDMARKER,
+                tokenize.ENCODING,
+                tokenize.INDENT,
+                tokenize.NL,
+                tokenize.NEWLINE,
+            }:
+                continue
+            last_type = token.type
+            last_string = token.string
+    except tokenize.TokenError:
+        return False
+    return last_type == tokenize.OP and last_string == ";"
 
 
 class BashRunner(Runner):
@@ -115,9 +163,9 @@ class BashRunner(Runner):
                 self.proc.kill()
 
 
-def make_runner(runtime: str, cwd: Path) -> Runner:
+def make_runner(runtime: str, cwd: Path, display: DisplayMode = "last-expression") -> Runner:
     if runtime == "python":
-        return PythonRunner(cwd)
+        return PythonRunner(cwd, display)
     if runtime == "bash":
         return BashRunner(cwd)
     raise ValueError(f"unsupported normalized runtime: {runtime}")

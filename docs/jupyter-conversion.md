@@ -8,7 +8,7 @@ The recommended workflow is:
 2. Clean up the exported Markdown.
 3. Add hidden `md-demo` config.
 4. Mark the code blocks that should execute with `exe`.
-5. Convert notebook display assumptions into explicit stdout.
+5. Convert rich notebook display assumptions into explicit text or files.
 6. Run `md-demo` and review the generated result blocks.
 
 Warning: `md-demo` executes code from the document. Convert and run only notebooks you trust.
@@ -87,7 +87,7 @@ Do not mark every code block automatically unless that is truly intended. Many n
 
 ## Convert notebook output expectations
 
-Jupyter often displays the value of the last expression in a cell. `md-demo` v1 captures stdout and stderr only.
+Jupyter often displays the value of the last expression in a cell. `md-demo` does the same for Python executable blocks by default, using plain text pretty-printing.
 
 Before:
 
@@ -101,11 +101,11 @@ After:
 
 ````markdown
 ```python exe
-print(a + 1)
+a + 1
 ```
 ````
 
-For rich displays, convert to explicit text output or write files intentionally.
+If a Python expression should not display, end the final statement with `;` or set `display: none` in the document config. For rich displays, convert to explicit text output or write files intentionally.
 
 Before:
 
@@ -183,7 +183,7 @@ fi
 - Use `--config-style hidden` or `--config-style front-matter` only when intentionally rewriting existing config style.
 - Use exactly one runtime for the converted document.
 - Mark only intended executable blocks with `exe`.
-- Convert Jupyter last-expression displays to `print(...)` or another explicit stdout form.
+- Keep simple Python last-expression displays as final expressions, or convert them to `print(...)` when explicit stdout is clearer.
 - Remove stale exported notebook outputs that should be regenerated.
 - Keep non-executed examples as normal fenced code blocks without `exe`.
 - Ensure blocks are non-interactive and do not rely on hidden notebook state.
@@ -197,7 +197,7 @@ Python expression display:
 
 ````markdown
 ```python exe
-print(value)
+value
 ```
 ````
 

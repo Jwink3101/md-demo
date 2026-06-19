@@ -48,6 +48,19 @@ def test_front_matter_accepts_preface_text():
     assert parsed.preface_text == "Output:"
 
 
+def test_front_matter_accepts_display_modes():
+    parsed = parse_document("---\nmd-demo:\n  runtime: python\n---\n")
+    assert parsed.display == "last-expression"
+
+    parsed = parse_document("---\nmd-demo:\n  runtime: python\n  display: none\n---\n")
+    assert parsed.display == "none"
+
+
+def test_front_matter_rejects_unsupported_display_mode():
+    with pytest.raises(MdDemoError, match="md-demo.display"):
+        parse_document("---\nmd-demo:\n  runtime: python\n  display: rich\n---\n")
+
+
 def test_hidden_html_comment_config_accepts_direct_keys():
     parsed = parse_document('<!-- md-demo\nruntime: python\npreface-text: "Output:"\n-->\n')
     assert parsed.runtime == "python"
@@ -259,6 +272,123 @@ print("hello")
         "<!-- md-demo: result start. Do not edit; this block is overwritten. -->\n```text"
         in result.text
     )
+
+
+def test_empty_output_does_not_insert_result_block(tmp_path: Path):
+    result = process_text(
+        doc(
+            "python",
+            """```python exe
+a = 5
+```
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert RESULT_START not in result.text
+    assert "```text" not in result.text
+
+
+def test_python_last_expression_display_is_default(tmp_path: Path):
+    result = process_text(
+        doc(
+            "python",
+            """```python exe
+a = 5
+a + 1
+```
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert "```text\n6\n```" in result.text
+
+
+def test_python_last_expression_display_uses_pformat(tmp_path: Path):
+    result = process_text(
+        doc(
+            "python",
+            """```python exe
+{"b": [1, 2, 3], "a": {"nested": True}}
+```
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert "{'a': {'nested': True}, 'b': [1, 2, 3]}" in result.text
+
+
+def test_python_last_expression_display_skips_assignment_none_and_semicolon(tmp_path: Path):
+    assigned = process_text(
+        doc(
+            "python",
+            """```python exe
+a = 5
+```
+""",
+        ),
+        path=tmp_path / "assigned.md",
+    )
+    assert RESULT_START not in assigned.text
+
+    none_value = process_text(
+        doc(
+            "python",
+            """```python exe
+None
+```
+""",
+        ),
+        path=tmp_path / "none.md",
+    )
+    assert RESULT_START not in none_value.text
+
+    semicolon = process_text(
+        doc(
+            "python",
+            """```python exe
+5 + 1;  # suppress display
+```
+""",
+        ),
+        path=tmp_path / "semicolon.md",
+    )
+    assert RESULT_START not in semicolon.text
+
+
+def test_python_last_expression_display_can_be_disabled(tmp_path: Path):
+    result = process_text(
+        doc_with_config(
+            "  runtime: python\n  display: none\n",
+            """```python exe
+5 + 1
+```
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert RESULT_START not in result.text
+
+
+def test_empty_output_removes_old_attached_result_block(tmp_path: Path):
+    result = process_text(
+        doc(
+            "python",
+            """```python exe
+a = 5
+```
+
+<!-- md-demo: result start. Do not edit; this block is overwritten. -->
+```text
+old
+```
+<!-- md-demo: result end -->
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert RESULT_START not in result.text
+    assert "old" not in result.text
 
 
 def test_changed_preface_text_replaces_old_generated_region(tmp_path: Path):

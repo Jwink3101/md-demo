@@ -62,6 +62,16 @@ preface-text: "Output:"
 
 If `preface-text` is missing or empty, no label is inserted. The label is generated inside the result region, so changing `preface-text` updates existing results the next time `md-demo` runs.
 
+Python last-expression display is enabled by default. To capture only stdout and stderr, set `display: none`:
+
+```yaml
+---
+md-demo:
+  runtime: python
+  display: none
+---
+```
+
 ## Executable blocks
 
 Only matching-language code blocks marked with `exe` run.
@@ -76,7 +86,7 @@ Ordinary code blocks are examples only and are not executed.
 
 ## Results
 
-Generated result blocks are inserted immediately after executable blocks.
+Generated result blocks are inserted immediately after executable blocks that produce output.
 
 ````markdown
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
@@ -88,19 +98,19 @@ hello
 <!-- md-demo: result end -->
 ````
 
-Do not edit generated result blocks. They are removed and recreated on each normal run. If `preface-text` is not configured, the generated result starts directly with the `text` fence.
+Do not edit generated result blocks. They are removed and recreated on each normal run. If a block produces no output, no result block is inserted. If `preface-text` is not configured, the generated result starts directly with the `text` fence.
 
 ## Execution model
 
 Blocks run top-to-bottom in one persistent runtime. Python variables, imports, functions, shell variables, and shell directory changes can carry forward to later executable blocks.
 
-Output is stdout and stderr. Python blocks should use `print` for values that should appear in the document. Shell blocks should use `echo` or commands that naturally print output. Python last-expression display is not part of v1.
+Output is stdout and stderr. For Python blocks, the final expression is also displayed by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon. Shell blocks should use `echo` or commands that naturally print output.
 
 `md-demo` is intended for non-interactive demos. Blocks should not require prompts or terminal input.
 
 ## Failure behavior
 
-A normal run behaves like clear and execute. Old result blocks are cleared first, then fresh results are inserted for blocks that run.
+A normal run behaves like clear and execute. Old result blocks are cleared first, then fresh results are inserted for blocks that produce output.
 
 If a block fails, `md-demo` writes output through the failed block, stops before later executable blocks, and exits nonzero. Later executable blocks are left without result blocks because they did not run.
 
@@ -195,7 +205,7 @@ md-demo demo.md --clear --output -
 - Use `--config-style hidden` or `--config-style front-matter` only when intentionally rewriting config style.
 - Use `md-demo.preface-text` only when rendered documents need a visible output label.
 - Mark executable blocks with `exe`.
-- Put expected displayed values on stdout or stderr.
+- Put expected displayed values on stdout, stderr, or the final Python expression.
 - Leave generated result blocks immediately after their source block.
 - Do not edit generated result blocks.
 - Handle intentional failures inside the code block.

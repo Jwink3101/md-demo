@@ -9,7 +9,7 @@ from typing import Iterable
 
 from .config import ConfigBlock, ConfigStyle, parse_config, render_config
 from .errors import ExecutionFailed, MdDemoError
-from .runners import BlockResult, make_runner
+from .runners import BlockResult, DisplayMode, make_runner
 
 RESULT_START_PREFIX = "<!-- md-demo: result start"
 RESULT_START = "<!-- md-demo: result start. Do not edit; this block is overwritten. -->"
@@ -49,6 +49,7 @@ class ParsedDocument:
     lines: list[str]
     newline: str
     runtime: str
+    display: DisplayMode
     preface_text: str
     body_start: int
     config_block: ConfigBlock
@@ -110,7 +111,7 @@ def process_text(
             f"stray md-demo result block at line {block.line}; result blocks must appear immediately after the executable block that produced them"
         )
 
-    runner = None if clear else make_runner(parsed.runtime, path.parent)
+    runner = None if clear else make_runner(parsed.runtime, path.parent, parsed.display)
     try:
         return _rewrite(
             parsed,
@@ -136,6 +137,11 @@ def parse_document(raw: str) -> ParsedDocument:
     runtime = RUNTIME_ALIASES.get(runtime_value)
     if runtime is None:
         raise MdDemoError(f"unsupported md-demo.runtime: {runtime_value}")
+    display_value = config.get("display", "last-expression")
+    if display_value in {"last-expression", "none"}:
+        display = display_value
+    else:
+        raise MdDemoError("md-demo.display must be 'last-expression' or 'none' when provided")
     preface_value = config.get("preface-text", "")
     if preface_value is None:
         preface_text = ""
@@ -149,6 +155,7 @@ def parse_document(raw: str) -> ParsedDocument:
         lines,
         newline,
         runtime,
+        display,
         preface_text,
         config_block.body_start,
         config_block,
@@ -321,17 +328,18 @@ def _result_by_start(result_blocks: Iterable[ResultBlock], start: int) -> Result
 
 def format_result(result: BlockResult, newline: str, preface_text: str = "") -> list[str]:
     output = result.output
+    if not output:
+        return []
     fence = result_fence(output)
     lines = [RESULT_START + newline]
     if preface_text:
         lines.extend([preface_text + newline, newline])
     lines.append(f"{fence}text{newline}")
-    if output:
-        normalized = output.replace("\r\n", "\n").replace("\r", "\n")
-        for line in normalized.splitlines(keepends=True):
-            lines.append(line.replace("\n", newline))
-        if not normalized.endswith("\n"):
-            lines.append(newline)
+    normalized = output.replace("\r\n", "\n").replace("\r", "\n")
+    for line in normalized.splitlines(keepends=True):
+        lines.append(line.replace("\n", newline))
+    if not normalized.endswith("\n"):
+        lines.append(newline)
     lines.extend([f"{fence}{newline}", RESULT_END + newline])
     return lines
 

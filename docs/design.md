@@ -89,6 +89,18 @@ preface-text: "Output:"
 
 If `preface-text` is missing or empty, no label is inserted. The label is part of the generated result region, so changing the setting updates existing results on the next run.
 
+Python documents may configure display behavior:
+
+```yaml
+---
+md-demo:
+  runtime: python
+  display: none
+---
+```
+
+Supported display values are `last-expression` and `none`. The default is `last-expression`.
+
 ## Executable Blocks
 
 Code blocks execute only when explicitly marked with `exe`.
@@ -149,9 +161,9 @@ Execution uses the Markdown file's directory as the working directory. The proce
 
 ## Output Semantics
 
-v1 captures stdout and stderr. Users should use `print`, `echo`, or commands that naturally produce output.
+v1 captures stdout and stderr. Python blocks also display the final expression by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon. Users may set `display: none` to capture only stdout and stderr.
 
-Python last-expression display is intentionally not part of v1. That keeps Python and bash behavior aligned and avoids notebook-specific magic. A future version may add an explicit display feature if the need is strong enough.
+Displayed Python expressions are appended to the same text output as stdout and stderr. They are formatted with Python's pretty-printer rather than notebook rich display hooks.
 
 Captured output is written as text. ANSI color and control codes should be stripped by default so generated Markdown remains readable.
 
@@ -159,7 +171,7 @@ If output contains Markdown fences, the generated result block should use a long
 
 ## Generated Result Blocks
 
-Generated output is written immediately after the executable block that produced it.
+Generated output is written immediately after the executable block that produced it. If a block produces no output, no result block is inserted.
 
 ````markdown
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
@@ -188,7 +200,7 @@ No explicit block IDs are required. Result blocks are paired by immediate adjace
 1. Find an executable block.
 2. Look immediately after it, ignoring blank lines.
 3. If an attached `md-demo` result block exists, remove or replace it.
-4. If no attached result block exists, insert one after execution.
+4. If no attached result block exists, insert one after execution only when output is non-empty.
 
 Generated result blocks that are not immediately attached to an executable block are stray result blocks. A normal run should fail if any stray result block exists. This avoids leaving stale output in the document or deleting ambiguous content.
 
@@ -200,19 +212,10 @@ A normal run behaves like "clear and execute":
 2. Validate the generated result block structure.
 3. Remove old result blocks attached to executable blocks.
 4. Execute blocks top-to-bottom.
-5. Insert fresh result blocks for blocks that actually ran.
+5. Insert fresh result blocks for blocks that produced output.
 6. Write the reconstructed document.
 
-If a block produces no output, it still gets an empty result block when it ran successfully:
-
-````markdown
-<!-- md-demo: result start. Do not edit; this block is overwritten. -->
-```text
-```
-<!-- md-demo: result end -->
-````
-
-This shows that the block ran and produced no output.
+If a block produces no output, `md-demo` leaves no result block behind. This keeps quiet setup blocks from adding empty generated regions.
 
 If execution fails, `md-demo` writes fresh output through the failed block, stops execution, and exits nonzero. Later executable blocks do not receive result blocks, because they did not run. This mirrors a notebook-style clear-and-execute workflow and avoids stale later outputs.
 
@@ -381,6 +384,8 @@ globals_dict = {}
 for block in executable_blocks:
     exec(block.code, globals_dict, globals_dict)
 ```
+
+For `display: last-expression`, the runner parses each block and, when the final statement is an expression without a trailing semicolon, evaluates that expression separately after executing the preceding statements. If the value is not `None`, it is formatted with `pprint.pformat` and appended to captured output.
 
 For each block, temporarily capture `sys.stdout` and `sys.stderr` so output can be attached to that block.
 

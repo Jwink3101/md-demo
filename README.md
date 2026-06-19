@@ -1,6 +1,6 @@
 # md-demo
 
-`md-demo` is a lightweight Markdown demo runner. It executes explicitly marked code blocks, captures stdout and stderr, and writes generated output back into the Markdown file.
+`md-demo` is a lightweight Markdown demo runner. It executes explicitly marked code blocks, captures stdout, stderr, and Python last expressions, and writes generated output back into the Markdown file.
 
 It is meant for readable demo documents that stay useful as plain Markdown. It is not a notebook system, a sandbox, or a runner for untrusted code.
 
@@ -126,6 +126,16 @@ preface-text: "Output:"
 
 If `preface-text` is missing, empty, or `null`, no label is inserted. The label is generated inside the result region, so changing `preface-text` updates existing results the next time `md-demo` runs.
 
+Python last-expression display is enabled by default. To capture only stdout and stderr, set `display: none`:
+
+```yaml
+---
+md-demo:
+  runtime: python
+  display: none
+---
+```
+
 ## Executable blocks
 
 Only matching-language fenced code blocks marked with `exe` run.
@@ -146,7 +156,7 @@ print("shown, not run")
 
 Executable blocks run top-to-bottom in one persistent runtime. Python variables, imports, functions, shell variables, and shell directory changes can carry forward to later executable blocks.
 
-`md-demo` captures stdout and stderr. Python blocks should use `print` for values that should appear in the document. Python last-expression display is not part of v1.
+`md-demo` captures stdout and stderr. For Python blocks, the final expression is also displayed by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon.
 
 ## CLI
 
@@ -198,7 +208,7 @@ A normal run behaves like clear and execute:
 
 1. Old generated results are cleared.
 2. Executable blocks run top-to-bottom.
-3. Fresh result blocks are inserted for blocks that actually ran.
+3. Fresh result blocks are inserted for blocks that produced output.
 
 If a block fails, `md-demo` writes output through the failed block, stops before later executable blocks, and exits nonzero. Later executable blocks are left without result blocks because they did not run.
 
