@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "md-demo"
+description = "A lightweight Markdown demo runner."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = ["PyYAML>=6"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+md-demo = "md_demo.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "md_demo.__version__"}
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100

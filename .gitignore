@@ -1,0 +1,29 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Packaging and editable install output
+build/
+dist/
+*.egg-info/
+src/*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment files
+.env
+.env.*
+
+# macOS
+.DS_Store
