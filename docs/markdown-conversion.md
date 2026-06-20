@@ -217,6 +217,8 @@ print(df.head().to_string())
 
 `md-demo` runs executable blocks top-to-bottom in one persistent runtime. Move setup before dependent blocks, or use config `setup` for imports and initialization that should run before the first executable block without being shown in generated output. Remove assumptions from previous interactive sessions, hidden state, or manual out-of-order execution.
 
+If a library reads environment variables at import time, put those environment variables in `setup` before importing the library there. Environment variables assigned in later visible blocks cannot affect import-time configuration that has already happened in `setup`.
+
 If the existing document has independent examples, either keep them non-executed or rewrite each example so the required setup is shown before it.
 
 ## Handle risky or interactive commands

@@ -177,13 +177,13 @@ The second block sees `name` and prints `world`.
 
 If `setup` is configured, it runs before the first executable block in that same persistent runtime. It can define imports, helper functions, or startup code that should stay out of the rendered demo output.
 
-Execution uses the Markdown file's directory as the working directory. Python execution also puts that directory first on `sys.path` while a block runs so adjacent modules can be imported. The process inherits the user's environment. v1 should not define special `md-demo` environment variables unless a concrete need emerges.
+Execution uses the Markdown file's directory as the working directory. Python execution also puts that directory first on `sys.path` while a block runs so adjacent modules can be imported. The process inherits the user's environment. v1 should not define special `md-demo` environment variables unless a concrete need emerges. Because setup code runs before visible executable blocks, libraries that read environment variables at import time should have those environment variables assigned in setup before the import.
 
 `md-demo` is intended for non-interactive demos. Blocks should not require interactive input. This is guidance rather than a hard guarantee; v1 does not need special prompt handling.
 
 ## Output Semantics
 
-v1 captures stdout and stderr. Python blocks also display the final expression by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon. Users may set `display: none` to capture only stdout and stderr.
+v1 captures stdout and stderr. Python logging handlers created in one block with `logging.StreamHandler()`, `logging.StreamHandler(sys.stderr)`, or `logging.StreamHandler(sys.stdout)` should be captured in the block where each log is emitted. Python blocks also display the final expression by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon. Users may set `display: none` to capture only stdout and stderr.
 
 Displayed Python expressions are appended to the same text output as stdout and stderr. They are formatted with Python's pretty-printer rather than notebook rich display hooks.
 
@@ -426,7 +426,7 @@ for block in executable_blocks:
 
 For `display: last-expression`, the runner parses each block and, when the final statement is an expression without a trailing semicolon, evaluates that expression separately after executing the preceding statements. If the value is not `None`, it is formatted with `pprint.pformat` and appended to captured output.
 
-For each block, temporarily capture `sys.stdout` and `sys.stderr` so output can be attached to that block.
+For each block, temporarily capture `sys.stdout` and `sys.stderr` so output can be attached to that block. Python stdout and stderr capture should use persistent proxy streams whose targets change per block, so logging handlers or other objects that bind `sys.stdout` or `sys.stderr` in one block still write into the current block's output later.
 
 This is straightforward and avoids a notebook kernel. It also means Python demo code is trusted and can affect the `md-demo` process. That tradeoff is acceptable for v1 and should be documented.
 

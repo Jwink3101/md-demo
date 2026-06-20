@@ -2,6 +2,10 @@
 
 Newest on top
 
+## 0.3.1 (2026-06-19)
+
+- Minor: Fix for python logging
+
 ## 0.3.0 (2026-06-19)
 
 - Makes plain Markdown documents runnable with Python defaults when no `md-demo` config block is present.

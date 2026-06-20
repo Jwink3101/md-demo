@@ -104,6 +104,8 @@ md-demo:
 
 Setup code uses the document runtime, shares the same persistent state as visible blocks, and runs after the runner has changed into the current working directory. Output from successful setup code is discarded. If setup fails, `md-demo` writes the failure output at the block that could not run and stops.
 
+Setup code runs before visible executable blocks. If a library reads environment variables when it is imported, put those environment variables in `setup` before importing the library there. Environment variables assigned in later visible blocks cannot affect import-time configuration that has already happened in `setup`.
+
 ## Executable blocks
 
 Only matching-language code blocks marked with `exe` run.
@@ -136,7 +138,7 @@ Do not edit generated result blocks. They are removed and recreated on each norm
 
 Blocks run top-to-bottom in one persistent runtime. Python variables, imports, functions, shell variables, and shell directory changes can carry forward to later executable blocks. Python blocks can import modules from the Markdown file's directory. If `setup` is configured, it runs before the first executable block in that same persistent runtime.
 
-Output is stdout and stderr. For Python blocks, the final expression is also displayed by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon. Shell blocks should use `echo` or commands that naturally print output.
+Output is stdout and stderr. Python logging handlers created in one block with `logging.StreamHandler()`, `logging.StreamHandler(sys.stderr)`, or `logging.StreamHandler(sys.stdout)` are captured in the block where each log is emitted. For Python blocks, the final expression is also displayed by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon. Shell blocks should use `echo` or commands that naturally print output.
 
 `md-demo` is intended for non-interactive demos. Blocks should not require prompts or terminal input.
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -128,6 +129,89 @@ print(a + 1)
     )
     assert "```\n5\n```" in result.text
     assert "```\n6\n```" in result.text
+
+
+def test_python_basic_config_logging_captures_later_block(tmp_path: Path):
+    root = logging.getLogger()
+    old_handlers = root.handlers[:]
+    old_level = root.level
+    try:
+        root.handlers.clear()
+        result = process_text(
+            doc(
+                "python",
+                """```python exe
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+```
+
+```python exe
+logging.warning("from basic config")
+```
+""",
+            ),
+            path=tmp_path / "demo.md",
+        )
+    finally:
+        root.handlers[:] = old_handlers
+        root.setLevel(old_level)
+    assert "WARNING:root:from basic config" in result.text
+
+
+def test_python_logging_handler_created_in_one_block_captures_later_logs(tmp_path: Path):
+    result = process_text(
+        doc(
+            "python",
+            """```python exe
+import logging
+
+logger = logging.getLogger("md_demo_test_later_stderr")
+logger.handlers.clear()
+logger.propagate = False
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+```
+
+```python exe
+logger.info("from later block")
+```
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert "```\nINFO:from later block\n```" in result.text
+
+
+def test_python_stdout_logging_handler_created_in_one_block_captures_later_logs(
+    tmp_path: Path,
+):
+    result = process_text(
+        doc(
+            "python",
+            """```python exe
+import logging
+import sys
+
+logger = logging.getLogger("md_demo_test_later_stdout")
+logger.handlers.clear()
+logger.propagate = False
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(message)s"))
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+```
+
+```python exe
+logger.info("stdout from later block")
+```
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert "```\nstdout from later block\n```" in result.text
 
 
 def test_result_language_sets_generated_fence_info(tmp_path: Path):

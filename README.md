@@ -155,6 +155,8 @@ md-demo:
 ---
 ```
 
+Setup code runs before visible executable blocks. If a library reads environment variables when it is imported, put those environment variables in `setup` before importing the library there. Environment variables assigned in later visible blocks cannot affect import-time configuration that has already happened in `setup`.
+
 ## Executable blocks
 
 Only matching-language fenced code blocks marked with `exe` run.
@@ -175,7 +177,7 @@ print("shown, not run")
 
 Executable blocks run top-to-bottom in one persistent runtime. Python variables, imports, functions, shell variables, and shell directory changes can carry forward to later executable blocks. Python blocks can import modules from the Markdown file's directory. If `setup` is configured, it runs before the first executable block in that same persistent runtime.
 
-`md-demo` captures stdout and stderr. For Python blocks, the final expression is also displayed by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon.
+`md-demo` captures stdout and stderr. Python logging handlers created in one block with `logging.StreamHandler()`, `logging.StreamHandler(sys.stderr)`, or `logging.StreamHandler(sys.stdout)` are captured in the block where each log is emitted. For Python blocks, the final expression is also displayed by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon.
 
 ## CLI
 

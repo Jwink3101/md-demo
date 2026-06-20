@@ -39,12 +39,53 @@ class Runner:
         pass
 
 
+class CaptureStream:
+    def __init__(self, original):
+        self.original = original
+        self.target = original
+
+    def write(self, text: str) -> int:
+        return self.target.write(text)
+
+    def flush(self) -> None:
+        self.target.flush()
+
+    def isatty(self) -> bool:
+        return self.target.isatty()
+
+    def fileno(self) -> int:
+        return self.target.fileno()
+
+    @property
+    def encoding(self):
+        return getattr(self.target, "encoding", getattr(self.original, "encoding", None))
+
+    @property
+    def errors(self):
+        return getattr(self.target, "errors", getattr(self.original, "errors", None))
+
+    def __getattr__(self, name: str):
+        return getattr(self.target, name)
+
+
+@contextlib.contextmanager
+def _capture_target(stream: CaptureStream, target):
+    previous = stream.target
+    stream.target = target
+    try:
+        yield
+    finally:
+        stream.target = previous
+
+
 class PythonRunner(Runner):
     def __init__(self, cwd: Path, display: DisplayMode):
         self.cwd = cwd
         self.import_path = str(cwd.resolve())
         self.display = display
         self.globals: dict[str, object] = {"__name__": "__md_demo__"}
+        self.stdout = CaptureStream(sys.stdout)
+        self.stderr = CaptureStream(sys.stderr)
 
     def run_block(self, code: str) -> BlockResult:
         stdout = io.StringIO()
@@ -54,7 +95,12 @@ class PythonRunner(Runner):
         try:
             os.chdir(self.cwd)
             sys.path.insert(0, self.import_path)
-            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            with (
+                _capture_target(self.stdout, stdout),
+                _capture_target(self.stderr, stderr),
+                contextlib.redirect_stdout(self.stdout),
+                contextlib.redirect_stderr(self.stderr),
+            ):
                 self._execute(code)
             self.cwd = Path.cwd()
         except BaseException:

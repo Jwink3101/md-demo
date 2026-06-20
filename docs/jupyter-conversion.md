@@ -168,6 +168,8 @@ md-demo notebook.md
 
 Move any required setup before the blocks that depend on it, or use config `setup` for imports and initialization that should run before the first executable block without being shown in generated output. Remove dependencies on hidden notebook state, out-of-order execution, or variables created only during an interactive session.
 
+If a library reads environment variables at import time, put those environment variables in `setup` before importing the library there. Environment variables assigned in later visible blocks cannot affect import-time configuration that has already happened in `setup`.
+
 If a notebook only works after cells are run manually out of order, reorder or rewrite it before converting.
 
 ## Handle failures
