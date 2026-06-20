@@ -10,7 +10,7 @@ Warning: `md-demo` executes code from the document. Convert and run only documen
 
 1. Read the document before editing.
 2. Identify whether the document is primarily a Python demo, bash demo, or ordinary documentation.
-3. Add hidden `md-demo` config only when the document should become executable.
+3. Add `md-demo` config only when the Python defaults are not enough.
 4. Mark only intended executable blocks with `exe`.
 5. Convert expected displayed values to executable output.
 6. Remove or preserve existing output based on the rules below.
@@ -37,7 +37,9 @@ For mixed documents, convert only the runnable section or split the demo into a 
 
 ## Add md-demo config
 
-For converted Markdown documents, default to hidden HTML comment config. It avoids renderers that show YAML front matter as visible page content.
+Python documents do not need config when the defaults are enough. A plain document with `python exe` blocks runs as Python with last-expression display enabled, no result label, and no setup code.
+
+Add config when the document needs a shell runtime, a result label, disabled last-expression display, or hidden setup code. For converted Markdown documents that need config, default to hidden HTML comment config. It avoids renderers that show YAML front matter as visible page content. The content between `<!-- md-demo` and `-->` is YAML.
 
 For Python demos:
 
@@ -83,6 +85,18 @@ preface-text: "Output:"
 ````
 
 If `preface-text` is missing or empty, no label is inserted.
+
+Config options:
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `runtime` | `python` | Selects `python`, `python3`, `bash`, or `shell`. |
+| `display` | `last-expression` | Set to `none` to disable Python final-expression output. |
+| `preface-text` | empty | Adds visible text before each generated output block. |
+| `result-language` | `""` | Sets the info string for generated result fences, such as `text` or `console`. |
+| `setup` | empty | Runs hidden setup code before the first executable block. |
+
+In YAML front matter, these options must live under the `md-demo:` key. In hidden HTML comment config, the comment body is YAML and uses the option names directly.
 
 ## Mark executable blocks
 
@@ -201,7 +215,7 @@ print(df.head().to_string())
 
 ## Preserve runnable order
 
-`md-demo` runs executable blocks top-to-bottom in one persistent runtime. Move setup before dependent blocks. Remove assumptions from previous interactive sessions, hidden state, or manual out-of-order execution.
+`md-demo` runs executable blocks top-to-bottom in one persistent runtime. Move setup before dependent blocks, or use config `setup` for imports and initialization that should run before the first executable block without being shown in generated output. Remove assumptions from previous interactive sessions, hidden state, or manual out-of-order execution.
 
 If the existing document has independent examples, either keep them non-executed or rewrite each example so the required setup is shown before it.
 
@@ -242,10 +256,11 @@ fi
 
 - Read the whole section before changing code fences.
 - Decide whether the document is a Python demo, bash demo, or not a good `md-demo` candidate.
-- Add hidden HTML comment config only when the document should be executable.
+- Add config only when the Python defaults are not enough.
 - Use YAML front matter only when it better fits the target documentation system.
 - Use `--config-style hidden` or `--config-style front-matter` only when intentionally rewriting existing config style.
 - Use `preface-text` only when rendered output needs a visible label.
+- Use `setup` for hidden imports or startup code that executable blocks need.
 - Mark only true demo steps with `exe`.
 - Leave illustrative, partial, unsafe, or cross-language examples without `exe`.
 - Keep simple Python expression displays as final expressions, or convert them to `print(...)` when explicit stdout is clearer.

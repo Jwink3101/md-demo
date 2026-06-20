@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from .document import process_file, write_output
 from .errors import ExecutionFailed, MdDemoError
 from .manual import MANUAL
@@ -12,6 +13,17 @@ HELP_DESCRIPTION = """A lightweight Markdown demo runner.
 
 By default, md-demo updates FILE in place.
 Use --output PATH to write elsewhere, or --output - to write to stdout.
+
+Markdown documents run as Python with default settings when no header is present.
+Optional header reference:
+  YAML front matter uses md-demo:; hidden comment config is YAML with direct keys.
+
+  Key           Default          Purpose
+  runtime       python           python, python3, bash, or shell
+  display       last-expression  use none to disable Python final-expression output
+  preface-text  empty            text inserted before generated result fences
+  result-language empty          info string for generated result fences
+  setup         empty            hidden code run before the first executable block
 
 Warning: md-demo executes code from the document. Run only trusted files.
 """
@@ -37,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--manual", action="store_true", help="print the detailed authoring and usage guide"
     )
+    parser.add_argument("--version", action="version", version=f"md-demo {__version__}")
     return parser
 
 

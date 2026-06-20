@@ -51,6 +51,8 @@ class ParsedDocument:
     runtime: str
     display: DisplayMode
     preface_text: str
+    result_language: str
+    setup: str
     body_start: int
     config_block: ConfigBlock
     code_blocks: list[CodeBlock]
@@ -131,7 +133,7 @@ def parse_document(raw: str) -> ParsedDocument:
     lines = raw.splitlines(keepends=True)
     config_block = parse_config(lines)
     config = config_block.config
-    runtime_value = config.get("runtime")
+    runtime_value = config.get("runtime", "python")
     if not isinstance(runtime_value, str):
         raise MdDemoError("missing md-demo.runtime")
     runtime = RUNTIME_ALIASES.get(runtime_value)
@@ -149,6 +151,22 @@ def parse_document(raw: str) -> ParsedDocument:
         preface_text = preface_value
     else:
         raise MdDemoError("md-demo.preface-text must be a string when provided")
+    result_language_value = config.get("result-language", "")
+    if result_language_value is None:
+        result_language = ""
+    elif isinstance(result_language_value, str):
+        if "\n" in result_language_value or "\r" in result_language_value:
+            raise MdDemoError("md-demo.result-language must not contain line breaks")
+        result_language = result_language_value
+    else:
+        raise MdDemoError("md-demo.result-language must be a string when provided")
+    setup_value = config.get("setup", "")
+    if setup_value is None:
+        setup = ""
+    elif isinstance(setup_value, str):
+        setup = setup_value
+    else:
+        raise MdDemoError("md-demo.setup must be a string when provided")
 
     code_blocks, result_blocks = scan_blocks(lines, config_block.body_start)
     return ParsedDocument(
@@ -157,6 +175,8 @@ def parse_document(raw: str) -> ParsedDocument:
         runtime,
         display,
         preface_text,
+        result_language,
+        setup,
         config_block.body_start,
         config_block,
         code_blocks,
@@ -282,9 +302,12 @@ def _rewrite(
     out: list[str] = []
     index = 0
     failed = False
+    rendered_config = False
+    setup_ran = False
     while index < len(parsed.lines):
-        if index == 0 and config_style != "preserve":
+        if index == 0 and config_style != "preserve" and not rendered_config:
             out.extend(render_config(parsed.config_block, parsed.newline, config_style))
+            rendered_config = True
             index = parsed.body_start
             continue
         if index in attached_result_starts:
@@ -308,8 +331,24 @@ def _rewrite(
             index = result_block.end
         if clear or failed:
             continue
+        if parsed.setup and not setup_ran:
+            setup_ran = True
+            setup_result = runner.run_block(parsed.setup)
+            if not setup_result.ok:
+                out.extend(
+                    format_result(
+                        setup_result,
+                        parsed.newline,
+                        parsed.preface_text,
+                        parsed.result_language,
+                    )
+                )
+                failed = True
+                continue
         result = runner.run_block(block.code)
-        out.extend(format_result(result, parsed.newline, parsed.preface_text))
+        out.extend(
+            format_result(result, parsed.newline, parsed.preface_text, parsed.result_language)
+        )
         if not result.ok:
             failed = True
             continue
@@ -326,7 +365,12 @@ def _result_by_start(result_blocks: Iterable[ResultBlock], start: int) -> Result
     raise AssertionError(f"missing result block starting at {start}")
 
 
-def format_result(result: BlockResult, newline: str, preface_text: str = "") -> list[str]:
+def format_result(
+    result: BlockResult,
+    newline: str,
+    preface_text: str = "",
+    result_language: str = "",
+) -> list[str]:
     output = result.output
     if not output:
         return []
@@ -334,7 +378,7 @@ def format_result(result: BlockResult, newline: str, preface_text: str = "") -> 
     lines = [RESULT_START + newline]
     if preface_text:
         lines.extend([preface_text + newline, newline])
-    lines.append(f"{fence}text{newline}")
+    lines.append(f"{fence}{result_language}{newline}")
     normalized = output.replace("\r\n", "\n").replace("\r", "\n")
     for line in normalized.splitlines(keepends=True):
         lines.append(line.replace("\n", newline))

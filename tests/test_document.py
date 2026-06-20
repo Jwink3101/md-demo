@@ -31,9 +31,16 @@ def test_front_matter_accepts_runtime_aliases():
         assert parsed.runtime == normalized
 
 
-def test_front_matter_rejects_missing_or_unsupported_runtime():
-    with pytest.raises(MdDemoError):
-        parse_document("---\ntitle: demo\n---\n")
+def test_missing_config_uses_python_defaults():
+    parsed = parse_document("")
+    assert parsed.runtime == "python"
+    assert parsed.display == "last-expression"
+
+    parsed = parse_document("---\ntitle: demo\n---\n")
+    assert parsed.runtime == "python"
+
+
+def test_front_matter_rejects_unsupported_runtime():
     with pytest.raises(MdDemoError):
         parse_document(doc("ruby", ""))
 
@@ -41,6 +48,12 @@ def test_front_matter_rejects_missing_or_unsupported_runtime():
 def test_front_matter_ignores_unrelated_keys():
     parsed = parse_document("---\ntitle: Demo\nmd-demo:\n  runtime: python\n---\n")
     assert parsed.runtime == "python"
+
+
+def test_front_matter_ignores_direct_config_keys():
+    parsed = parse_document("---\ntitle: Demo\nruntime: bash\nsetup: |\n  value = 10\n---\n")
+    assert parsed.runtime == "python"
+    assert parsed.setup == ""
 
 
 def test_front_matter_accepts_preface_text():
@@ -87,6 +100,16 @@ def test_front_matter_rejects_non_string_preface_text():
         parse_document("---\nmd-demo:\n  runtime: python\n  preface-text: [Output]\n---\n")
 
 
+def test_front_matter_accepts_result_language():
+    parsed = parse_document("---\nmd-demo:\n  runtime: python\n  result-language: console\n---\n")
+    assert parsed.result_language == "console"
+
+
+def test_front_matter_rejects_invalid_result_language():
+    with pytest.raises(MdDemoError, match="md-demo.result-language"):
+        parse_document("---\nmd-demo:\n  runtime: python\n  result-language: [text]\n---\n")
+
+
 def test_python_blocks_insert_results_and_persist_state(tmp_path: Path):
     result = process_text(
         doc(
@@ -103,8 +126,85 @@ print(a + 1)
         ),
         path=tmp_path / "demo.md",
     )
-    assert "```text\n5\n```" in result.text
-    assert "```text\n6\n```" in result.text
+    assert "```\n5\n```" in result.text
+    assert "```\n6\n```" in result.text
+
+
+def test_result_language_sets_generated_fence_info(tmp_path: Path):
+    result = process_text(
+        doc_with_config(
+            "  runtime: python\n  result-language: text\n",
+            """```python exe
+print("hello")
+```
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert "```text\nhello\n```" in result.text
+
+
+def test_document_without_header_runs_as_python_defaults(tmp_path: Path):
+    result = process_text(
+        """```python exe
+print("hello")
+```
+""",
+        path=tmp_path / "demo.md",
+    )
+    assert "```\nhello\n```" in result.text
+
+
+def test_setup_runs_once_before_first_executable_block_and_stays_hidden(tmp_path: Path):
+    result = process_text(
+        """---
+md-demo:
+  setup: |
+    print("hidden setup output")
+    counter = globals().get("counter", 0) + 1
+---
+
+```python exe
+print(counter)
+```
+
+```python exe
+counter += 1
+print(counter)
+```
+""",
+        path=tmp_path / "demo.md",
+    )
+    assert "```\n1\n```" in result.text
+    assert "```\n2\n```" in result.text
+    assert result.text.count("hidden setup output") == 1
+
+
+def test_setup_runs_before_python_chdir_and_does_not_rerun(tmp_path: Path):
+    result = process_text(
+        """---
+md-demo:
+  setup: |
+    from pathlib import Path
+    Path("setup-ran").write_text("yes")
+---
+
+```python exe
+import os
+os.mkdir("sub")
+os.chdir("sub")
+```
+
+```python exe
+from pathlib import Path
+print(Path("setup-ran").exists())
+```
+""",
+        path=tmp_path / "demo.md",
+    )
+    assert "```\nFalse\n```" in result.text
+    assert (tmp_path / "setup-ran").exists()
+    assert not (tmp_path / "sub" / "setup-ran").exists()
 
 
 def test_hidden_html_comment_config_runs_document(tmp_path: Path):
@@ -119,7 +219,7 @@ print("hello")
         path=tmp_path / "demo.md",
     )
     assert '<!-- md-demo\nruntime: python\npreface-text: "Output:"\n-->' in result.text
-    assert "Output:\n\n```text\nhello\n```" in result.text
+    assert "Output:\n\n```\nhello\n```" in result.text
 
 
 def test_config_style_hidden_converts_front_matter(tmp_path: Path):
@@ -214,7 +314,29 @@ print(os.getcwd().endswith("sub"))
         ),
         path=tmp_path / "demo.md",
     )
-    assert "```text\nTrue\n```" in result.text
+    assert "```\nTrue\n```" in result.text
+
+
+def test_python_import_path_stays_at_document_dir_after_chdir(tmp_path: Path):
+    (tmp_path / "document_dir_helper.py").write_text('MESSAGE = "from document dir"\n')
+    result = process_text(
+        doc(
+            "python",
+            """```python exe
+import os
+os.mkdir("sub")
+os.chdir("sub")
+```
+
+```python exe
+import document_dir_helper
+print(document_dir_helper.MESSAGE)
+```
+""",
+        ),
+        path=tmp_path / "demo.md",
+    )
+    assert "```\nfrom document dir\n```" in result.text
 
 
 def test_replaces_attached_old_result(tmp_path: Path):
@@ -252,7 +374,7 @@ print("hello")
     assert (
         "<!-- md-demo: result start. Do not edit; this block is overwritten. -->\n"
         "Output:\n\n"
-        "```text\nhello\n```"
+        "```\nhello\n```"
     ) in result.text
 
 
@@ -269,7 +391,7 @@ print("hello")
     )
     assert "Output:" not in result.text
     assert (
-        "<!-- md-demo: result start. Do not edit; this block is overwritten. -->\n```text"
+        "<!-- md-demo: result start. Do not edit; this block is overwritten. -->\n```"
         in result.text
     )
 
@@ -286,7 +408,6 @@ a = 5
         path=tmp_path / "demo.md",
     )
     assert RESULT_START not in result.text
-    assert "```text" not in result.text
 
 
 def test_python_last_expression_display_is_default(tmp_path: Path):
@@ -301,7 +422,7 @@ a + 1
         ),
         path=tmp_path / "demo.md",
     )
-    assert "```text\n6\n```" in result.text
+    assert "```\n6\n```" in result.text
 
 
 def test_python_last_expression_display_uses_pformat(tmp_path: Path):
@@ -379,7 +500,7 @@ a = 5
 ```
 
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
-```text
+```
 old
 ```
 <!-- md-demo: result end -->
@@ -402,7 +523,7 @@ print("new")
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
 Output:
 
-```text
+```
 old
 ```
 <!-- md-demo: result end -->
@@ -421,7 +542,7 @@ def test_stray_result_fails(tmp_path: Path):
             doc(
                 "python",
                 """<!-- md-demo: result start. Do not edit; this block is overwritten. -->
-```text
+```
 old
 ```
 <!-- md-demo: result end -->
@@ -440,7 +561,7 @@ raise RuntimeError("would run")
 ```
 
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
-```text
+```
 old
 ```
 <!-- md-demo: result end -->
@@ -471,7 +592,7 @@ print("```")
         ),
         path=tmp_path / "demo.md",
     )
-    assert "````text\n```\n````" in result.text
+    assert "````\n```\n````" in result.text
 
 
 def test_ansi_sequences_are_stripped(tmp_path: Path):
@@ -507,7 +628,7 @@ print("after")
 ```
 
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
-```text
+```
 stale after
 ```
 <!-- md-demo: result end -->
@@ -557,7 +678,7 @@ echo hello
         ),
         path=tmp_path / "demo.md",
     )
-    assert "```text\nhello\n```" in result.text
+    assert "```\nhello\n```" in result.text
 
 
 def test_bash_nonzero_exit_stops_execution(tmp_path: Path):

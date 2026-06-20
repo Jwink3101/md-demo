@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
+from md_demo import __version__
 from md_demo.cli import main
 
 
@@ -14,6 +16,20 @@ def test_default_invocation_updates_file_in_place(tmp_path: Path):
     path.write_text(doc("```python exe\nprint('hello')\n```\n"))
     assert main([str(path)]) == 0
     assert "hello" in path.read_text()
+
+
+def test_python_imports_adjacent_module_for_relative_nested_path(tmp_path: Path, monkeypatch):
+    project = tmp_path / "A" / "B" / "C"
+    project.mkdir(parents=True)
+    (project / "helper.py").write_text('MESSAGE = "from helper"\n')
+    path = project / "test.md"
+    path.write_text(doc("```python exe\nimport helper\nprint(helper.MESSAGE)\n```\n"))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "path", [entry for entry in sys.path if entry != ""])
+
+    assert main(["A/B/C/test.md"]) == 0
+    assert "from helper" in path.read_text()
 
 
 def test_output_path_leaves_source_unchanged(tmp_path: Path):
@@ -56,6 +72,15 @@ def test_manual_works_without_file(capsys):
     assert "pytest" in captured.out
 
 
+def test_version_works_without_file(capsys):
+    try:
+        main(["--version"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    captured = capsys.readouterr()
+    assert captured.out == f"md-demo {__version__}\n"
+
+
 def test_help_includes_trusted_warning(capsys):
     try:
         main(["--help"])
@@ -64,7 +89,10 @@ def test_help_includes_trusted_warning(capsys):
     captured = capsys.readouterr()
     assert "Run only trusted files" in captured.out
     assert "--config-style" in captured.out
+    assert "--version" in captured.out
     assert "default preserve" in captured.out
+    assert "no header is present" in captured.out
+    assert "setup" in captured.out
 
 
 def test_failed_execution_exits_nonzero_and_writes_file(tmp_path: Path):

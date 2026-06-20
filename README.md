@@ -24,14 +24,9 @@ pytest
 
 ## Quick start
 
-Create a Markdown file with one runtime and one executable block.
+Create a Markdown file with an executable Python block. No config header is needed for the Python defaults.
 
 ````markdown
----
-md-demo:
-  runtime: python
----
-
 ```python exe
 print("hello")
 ```
@@ -51,7 +46,7 @@ print("hello")
 ```
 
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
-```text
+```
 hello
 ```
 <!-- md-demo: result end -->
@@ -61,7 +56,7 @@ Do not edit generated result blocks. They are cleared and recreated on normal ru
 
 ## Document config
 
-Every runnable document needs config with one runtime. There are two supported forms.
+Runnable documents use Python defaults when no config is present. Add config only when you need to change a default, use shell, add a result label, or run hidden setup code before the first executable block. There are two supported forms.
 
 Use YAML front matter by default:
 
@@ -72,7 +67,7 @@ md-demo:
 ---
 ```
 
-If your Markdown renderer shows front matter as visible page content, use hidden HTML comment config instead:
+If your Markdown renderer shows front matter as visible page content, use hidden HTML comment config instead. The content between `<!-- md-demo` and `-->` is YAML:
 
 ````markdown
 <!-- md-demo
@@ -80,7 +75,7 @@ runtime: python
 -->
 ````
 
-Both forms are parsed only at the top of the document. `md-demo` preserves whichever form the document already uses by default.
+Both forms are parsed only at the top of the document. YAML front matter config must be namespaced under `md-demo:` so it does not collide with other front matter keys. Hidden HTML comment config is also YAML, but uses the same option names without the outer `md-demo` key. `md-demo` preserves whichever form the document already uses by default.
 
 To convert config style while running or clearing a document, use `--config-style`:
 
@@ -90,7 +85,19 @@ md-demo demo.md --config-style front-matter
 md-demo demo.md --config-style hidden
 ```
 
-`preserve` is the default and does not rewrite the config style. `front-matter` rewrites the document's `md-demo` config as YAML front matter. `hidden` rewrites the document's `md-demo` config as an HTML comment. Only the `md-demo` config is converted; unrelated front matter is preserved when practical.
+`preserve` is the default and does not rewrite the config style. `front-matter` rewrites the document's config as namespaced YAML front matter. `hidden` rewrites the document's config as an HTML comment. Only the `md-demo` config is converted; unrelated front matter is preserved when practical.
+
+Main config options:
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `runtime` | `python` | Selects `python`, `python3`, `bash`, or `shell`. |
+| `display` | `last-expression` | Set to `none` to disable Python final-expression output. |
+| `preface-text` | empty | Adds visible text before each generated output block. |
+| `result-language` | `""` | Sets the info string for generated result fences, such as `text` or `console`. |
+| `setup` | empty | Runs hidden setup code before the first executable block. |
+
+In YAML front matter, these options must live under the `md-demo:` key. In hidden HTML comment config, the comment body is YAML and uses the option names directly.
 
 Supported runtime values:
 
@@ -115,7 +122,7 @@ md-demo:
 ---
 ```
 
-Hidden HTML comment config:
+Hidden HTML comment config with a YAML body:
 
 ````markdown
 <!-- md-demo
@@ -126,13 +133,25 @@ preface-text: "Output:"
 
 If `preface-text` is missing, empty, or `null`, no label is inserted. The label is generated inside the result region, so changing `preface-text` updates existing results the next time `md-demo` runs.
 
+Generated result fences have no info string by default. Set `result-language` to add one, such as `text` or `console`.
+
 Python last-expression display is enabled by default. To capture only stdout and stderr, set `display: none`:
 
 ```yaml
 ---
 md-demo:
-  runtime: python
   display: none
+---
+```
+
+Use `setup` for imports or initialization that should run before the first executable block without being shown in generated output:
+
+```yaml
+---
+md-demo:
+  setup: |
+    import os
+    from pathlib import Path
 ---
 ```
 
@@ -154,7 +173,7 @@ print("shown, not run")
 ```
 ````
 
-Executable blocks run top-to-bottom in one persistent runtime. Python variables, imports, functions, shell variables, and shell directory changes can carry forward to later executable blocks.
+Executable blocks run top-to-bottom in one persistent runtime. Python variables, imports, functions, shell variables, and shell directory changes can carry forward to later executable blocks. Python blocks can import modules from the Markdown file's directory. If `setup` is configured, it runs before the first executable block in that same persistent runtime.
 
 `md-demo` captures stdout and stderr. For Python blocks, the final expression is also displayed by default when it is not assigned, does not evaluate to `None`, and is not followed by a trailing semicolon.
 
@@ -194,6 +213,12 @@ Print concise help:
 
 ```bash
 md-demo --help
+```
+
+Print the installed version:
+
+```bash
+md-demo --version
 ```
 
 Print the detailed manual:

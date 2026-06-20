@@ -23,7 +23,15 @@ The goal is to support readable, versionable demo documents without the weight o
 
 ## Document Model
 
-An `md-demo` document is a normal Markdown file with YAML front matter.
+An `md-demo` document is a normal Markdown file. If no `md-demo` config is present, the document uses Python defaults.
+
+````markdown
+```python exe
+print("hello")
+```
+````
+
+Config is optional and is needed only when changing defaults, using a shell runtime, adding result labels, or configuring setup code. The preferred YAML front matter form is namespaced under `md-demo:`:
 
 ```yaml
 ---
@@ -32,9 +40,9 @@ md-demo:
 ---
 ```
 
-The `md-demo` front matter is namespaced so it does not collide with other Markdown tools or document metadata. The tool should parse YAML front matter with a YAML parser and ignore unrelated front matter keys.
+The tool should parse YAML front matter with a YAML parser and ignore unrelated front matter keys. Direct top-level front matter keys such as `runtime` or `setup` are document metadata, not `md-demo` config.
 
-Some Markdown renderers display YAML front matter. For those renderers, a document may instead use a top-of-file HTML comment config:
+Some Markdown renderers display YAML front matter. For those renderers, a document may instead use a top-of-file HTML comment config. The content between `<!-- md-demo` and `-->` is YAML:
 
 ````markdown
 <!-- md-demo
@@ -52,9 +60,9 @@ md-demo demo.md --config-style front-matter
 md-demo demo.md --config-style hidden
 ```
 
-`preserve` is the default and does not rewrite the config style. `front-matter` rewrites the document's `md-demo` config as YAML front matter. `hidden` rewrites the document's `md-demo` config as HTML comment config. The conversion should only rewrite the `md-demo` config and preserve unrelated front matter when practical.
+`preserve` is the default and does not rewrite the config style. `front-matter` rewrites the document's config as namespaced YAML front matter. `hidden` rewrites the document's config as HTML comment config. The conversion should only rewrite the `md-demo` config and preserve unrelated front matter when practical.
 
-The document declares one runtime. Supported v1 runtime values are:
+The optional config declares one runtime when the Python default should be changed. Supported v1 runtime values are:
 
 - `python`
 - `python3`
@@ -94,12 +102,24 @@ Python documents may configure display behavior:
 ```yaml
 ---
 md-demo:
-  runtime: python
   display: none
 ---
 ```
 
 Supported display values are `last-expression` and `none`. The default is `last-expression`.
+
+Documents may configure setup code:
+
+```yaml
+---
+md-demo:
+  setup: |
+    import os
+    from pathlib import Path
+---
+```
+
+Setup code uses the configured runtime, shares the same persistent runtime state as executable blocks, and runs before the first executable block. It runs after the runner changes into the current working directory. Output from successful setup is discarded. If setup fails, the failure output is written at the block that could not run and execution stops.
 
 ## Executable Blocks
 
@@ -155,7 +175,9 @@ echo "$name"
 
 The second block sees `name` and prints `world`.
 
-Execution uses the Markdown file's directory as the working directory. The process inherits the user's environment. v1 should not define special `md-demo` environment variables unless a concrete need emerges.
+If `setup` is configured, it runs before the first executable block in that same persistent runtime. It can define imports, helper functions, or startup code that should stay out of the rendered demo output.
+
+Execution uses the Markdown file's directory as the working directory. Python execution also puts that directory first on `sys.path` while a block runs so adjacent modules can be imported. The process inherits the user's environment. v1 should not define special `md-demo` environment variables unless a concrete need emerges.
 
 `md-demo` is intended for non-interactive demos. Blocks should not require interactive input. This is guidance rather than a hard guarantee; v1 does not need special prompt handling.
 
@@ -169,13 +191,15 @@ Captured output is written as text. ANSI color and control codes should be strip
 
 If output contains Markdown fences, the generated result block should use a long enough fence to preserve the output exactly without breaking Markdown.
 
+Generated result fences have no info string by default. Users may set `result-language` to values such as `text` or `console` when a renderer should style generated output with a specific language.
+
 ## Generated Result Blocks
 
 Generated output is written immediately after the executable block that produced it. If a block produces no output, no result block is inserted.
 
 ````markdown
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
-```text
+```
 hello
 ```
 <!-- md-demo: result end -->
@@ -183,13 +207,13 @@ hello
 
 The start comment includes the "do not edit" warning. The end comment stays short. Result comments should not include timestamps, durations, status metadata, block IDs, or hashes in v1. Stable generated output keeps diffs clean.
 
-When `md-demo.preface-text` is configured, it is generated inside the result region before the `text` fence:
+When `preface-text` is configured, it is generated inside the result region before the output fence:
 
 ````markdown
 <!-- md-demo: result start. Do not edit; this block is overwritten. -->
 Output:
 
-```text
+```
 hello
 ```
 <!-- md-demo: result end -->
@@ -215,7 +239,7 @@ A normal run behaves like "clear and execute":
 5. Insert fresh result blocks for blocks that produced output.
 6. Write the reconstructed document.
 
-If a block produces no output, `md-demo` leaves no result block behind. This keeps quiet setup blocks from adding empty generated regions.
+If a block produces no output, `md-demo` leaves no result block behind. This keeps quiet setup code from adding empty generated regions.
 
 If execution fails, `md-demo` writes fresh output through the failed block, stops execution, and exits nonzero. Later executable blocks do not receive result blocks, because they did not run. This mirrors a notebook-style clear-and-execute workflow and avoids stale later outputs.
 
@@ -307,10 +331,22 @@ Usage: md-demo [options] FILE
 By default, md-demo updates FILE in place.
 Use --output PATH to write elsewhere, or --output - to write to stdout.
 
+Markdown documents run as Python with default settings when no header is present.
+Optional header reference:
+  YAML front matter uses md-demo:; hidden comment config is YAML with direct keys.
+
+  Key           Default          Purpose
+  runtime       python           python, python3, bash, or shell
+  display       last-expression  use none to disable Python final-expression output
+  preface-text  empty            text inserted before generated result fences
+  result-language empty          info string for generated result fences
+  setup         empty            hidden code run before the first executable block
+
 Options:
   --clear        remove generated result blocks without executing code
   --output PATH  write updated Markdown to PATH; use - for stdout
   --manual       print the detailed authoring and usage guide
+  --version      show the installed version and exit
   -h, --help     show this help
 
 Warning: md-demo executes code from the document. Run only trusted files.
@@ -318,10 +354,13 @@ Warning: md-demo executes code from the document. Run only trusted files.
 
 `--manual` prints the detailed authoring and usage guide. It should work without a file argument and should not parse or execute any document.
 
+`--version` prints the installed package version and exits without requiring a file argument.
+
 The manual should cover:
 
-- front matter
+- optional front matter
 - runtime values and aliases
+- setup code
 - executable block syntax
 - generated result blocks
 - clear-and-execute behavior
@@ -346,7 +385,7 @@ Python demos may run in-process in v1 for implementation simplicity. Shell demos
 The document pipeline should be shared across runtimes:
 
 1. Read the file.
-2. Parse front matter.
+2. Parse optional config.
 3. Scan Markdown for fenced code blocks and generated result blocks.
 4. Validate pairing and fail on strays.
 5. Clear attached results.

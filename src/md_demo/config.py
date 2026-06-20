@@ -20,16 +20,20 @@ class ConfigBlock:
 
 def parse_config(lines: list[str]) -> ConfigBlock:
     if not lines:
-        raise MdDemoError("missing md-demo.runtime")
+        return default_config()
     first = lines[0].strip()
     if first == "---":
         end_index = _find_end(lines, start=1, marker="---", error="unterminated YAML front matter")
         data = load_yaml_config("".join(lines[1:end_index]), "front matter")
         config = data.get("md-demo")
+        if config is None:
+            config = {"runtime": "python"}
         if not isinstance(config, dict):
-            raise MdDemoError("missing md-demo.runtime in front matter")
+            raise MdDemoError("md-demo front matter config must be a mapping")
+        front_matter = dict(data)
+        front_matter.pop("md-demo", None)
         return ConfigBlock(
-            config=config, body_start=end_index + 1, style="front-matter", front_matter=data
+            config=config, body_start=end_index + 1, style="front-matter", front_matter=front_matter
         )
     if first.startswith("<!-- md-demo") and first[len("<!-- md-demo") :].strip() in {"", "-->"}:
         if first.endswith("-->"):
@@ -63,7 +67,16 @@ def parse_config(lines: list[str]) -> ConfigBlock:
         return ConfigBlock(
             config=config, body_start=body_start, style="hidden", front_matter=front_matter
         )
-    raise MdDemoError("missing md-demo.runtime")
+    return default_config()
+
+
+def default_config() -> ConfigBlock:
+    return ConfigBlock(
+        config={"runtime": "python"},
+        body_start=0,
+        style="default",
+        front_matter={},
+    )
 
 
 def render_config(block: ConfigBlock, newline: str, style: ConfigStyle) -> list[str]:

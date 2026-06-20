@@ -42,6 +42,7 @@ class Runner:
 class PythonRunner(Runner):
     def __init__(self, cwd: Path, display: DisplayMode):
         self.cwd = cwd
+        self.import_path = str(cwd.resolve())
         self.display = display
         self.globals: dict[str, object] = {"__name__": "__md_demo__"}
 
@@ -52,6 +53,7 @@ class PythonRunner(Runner):
         ok = True
         try:
             os.chdir(self.cwd)
+            sys.path.insert(0, self.import_path)
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
                 self._execute(code)
             self.cwd = Path.cwd()
@@ -60,6 +62,11 @@ class PythonRunner(Runner):
             traceback.print_exc(file=stderr)
             self.cwd = Path.cwd()
         finally:
+            if sys.path and sys.path[0] == self.import_path:
+                del sys.path[0]
+            else:
+                with contextlib.suppress(ValueError):
+                    sys.path.remove(self.import_path)
             os.chdir(old_cwd)
         return BlockResult(clean_output(stdout.getvalue() + stderr.getvalue()), ok)
 

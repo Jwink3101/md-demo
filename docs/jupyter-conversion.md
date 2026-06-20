@@ -6,7 +6,7 @@ The recommended workflow is:
 
 1. Export the notebook to Markdown with a Jupyter converter.
 2. Clean up the exported Markdown.
-3. Add hidden `md-demo` config.
+3. Add `md-demo` config only when the Python defaults are not enough.
 4. Mark the code blocks that should execute with `exe`.
 5. Convert rich notebook display assumptions into explicit text or files.
 6. Run `md-demo` and review the generated result blocks.
@@ -27,7 +27,9 @@ If `jupyter` is not available, install the needed Jupyter tooling in your enviro
 
 ## Add md-demo config
 
-For converted notebooks, default to hidden HTML comment config. It avoids renderers that show YAML front matter as visible page content.
+Python notebooks do not need config when the defaults are enough. A plain Markdown document with `python exe` blocks runs as Python with last-expression display enabled, no result label, and no setup code.
+
+Add config when the converted notebook needs a shell runtime, disabled last-expression display, a result label, or hidden setup code. For converted notebooks that need config, default to hidden HTML comment config. It avoids renderers that show YAML front matter as visible page content. The content between `<!-- md-demo` and `-->` is YAML.
 
 For a Python notebook:
 
@@ -62,6 +64,18 @@ md-demo notebook.md --clear --config-style hidden
 ```
 
 Use one runtime per document. If the notebook mixes Python and shell cells, choose the main demo runtime and convert the other cells into prose, non-executed examples, or separate `md-demo` documents.
+
+Config options:
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `runtime` | `python` | Selects `python`, `python3`, `bash`, or `shell`. |
+| `display` | `last-expression` | Set to `none` to disable Python final-expression output. |
+| `preface-text` | empty | Adds visible text before each generated output block. |
+| `result-language` | `""` | Sets the info string for generated result fences, such as `text` or `console`. |
+| `setup` | empty | Runs hidden setup code before the first executable block. |
+
+In YAML front matter, these options must live under the `md-demo:` key. In hidden HTML comment config, the comment body is YAML and uses the option names directly.
 
 ## Mark executable cells
 
@@ -152,7 +166,7 @@ md-demo notebook.md
 
 `md-demo` runs executable blocks top-to-bottom in one persistent runtime. This is similar to running a notebook from a clean kernel in order.
 
-Move any required setup before the blocks that depend on it. Remove dependencies on hidden notebook state, out-of-order execution, or variables created only during an interactive session.
+Move any required setup before the blocks that depend on it, or use config `setup` for imports and initialization that should run before the first executable block without being shown in generated output. Remove dependencies on hidden notebook state, out-of-order execution, or variables created only during an interactive session.
 
 If a notebook only works after cells are run manually out of order, reorder or rewrite it before converting.
 
@@ -178,10 +192,11 @@ fi
 ## Agent conversion checklist
 
 - Convert `.ipynb` to Markdown first, preferably with `jupyter nbconvert --to markdown`.
-- Add hidden HTML comment config by default.
+- Add config only when the Python defaults are not enough.
 - Use YAML front matter only when it better fits the target documentation system.
 - Use `--config-style hidden` or `--config-style front-matter` only when intentionally rewriting existing config style.
 - Use exactly one runtime for the converted document.
+- Use `setup` for hidden imports or startup code that executable blocks need.
 - Mark only intended executable blocks with `exe`.
 - Keep simple Python last-expression displays as final expressions, or convert them to `print(...)` when explicit stdout is clearer.
 - Remove stale exported notebook outputs that should be regenerated.
