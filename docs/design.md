@@ -368,6 +368,12 @@ The manual should cover:
 - failure behavior
 - intentional failure patterns
 - trusted-code warning
+- concise repository guidance for agents maintaining `md-demo` documents
+- a requirement that repository guidance identify the specific demo files or directories
+- regeneration guidance that includes inspecting executable code, checking command success, and reviewing the diff
+- installation guidance when the command is unavailable
+- guidance to consult `--manual` when needed rather than by default
+- a warning that `--output -` avoids rewriting the source document but does not prevent executed code from changing external state
 - examples
 
 ## Trust and Safety

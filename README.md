@@ -229,6 +229,21 @@ Print the detailed manual:
 md-demo --manual
 ```
 
+## Proposed AGENTS.md guidance
+
+Repositories containing `md-demo` demos can include the following minimal guidance in `AGENTS.md`:
+
+```markdown
+## md-demo demos
+
+- The `md-demo` demos are [list the repository's demo files or directories here]. Do not leave this unspecified: agents need repository-specific paths to distinguish demos from ordinary Markdown.
+- Executable fenced code blocks are marked with `exe`, run top-to-bottom in one persistent runtime, and have their captured output written into generated result blocks.
+- Edit the demo prose and executable source blocks, not generated `md-demo` result blocks. Inspect the executable blocks before running them, regenerate output with `md-demo path/to/demo.md`, require a successful exit, and review the resulting diff.
+- Run only trusted demos because their code executes locally.
+- If the `md-demo` command is unavailable, install it with `pip install md-demo` or use the repository's documented development installation.
+- Use `md-demo --manual` when authoring or troubleshooting a demo requires more detail. Do not call it by default for unrelated repository work.
+```
+
 ## Failure behavior
 
 A normal run behaves like clear and execute:

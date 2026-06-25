@@ -2,6 +2,10 @@
 
 Newest on top
 
+## 0.3.2 (2026-06-19)
+
+- Minor: Improved documentation, including in `--manual`, for agents and interactions
+
 ## 0.3.1 (2026-06-19)
 
 - Minor: Fix for python logging

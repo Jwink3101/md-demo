@@ -70,6 +70,12 @@ def test_manual_works_without_file(capsys):
     assert 'python -m pip install -e ".[test]"' in captured.out
     assert "python -m compileall -q src" in captured.out
     assert "pytest" in captured.out
+    assert "Repository agent guidance" in captured.out
+    assert "Do not call it by default" in captured.out
+    assert "Do not leave this unspecified" in captured.out
+    assert "review the resulting diff" in captured.out
+    assert "This still executes the demo code" in captured.out
+    assert "Let `md-demo` create, position, and replace generated result blocks" in captured.out
 
 
 def test_version_works_without_file(capsys):

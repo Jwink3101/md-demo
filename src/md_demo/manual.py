@@ -2,6 +2,8 @@ MANUAL = """# md-demo Manual
 
 `md-demo` runs trusted code blocks in a Markdown document and writes generated output back into the document.
 
+It is meant for readable demo documents that stay useful as plain Markdown. It is not a notebook system, a sandbox, or a runner for untrusted code.
+
 ## Trust and safety
 
 `md-demo` executes code from the document on your machine. Run only trusted files. Python demos run in-process in v1, and shell demos run arbitrary bash commands.
@@ -80,7 +82,7 @@ preface-text: "Output:"
 -->
 ````
 
-If `preface-text` is missing or empty, no label is inserted. The label is generated inside the result region, so changing `preface-text` updates existing results the next time `md-demo` runs.
+If `preface-text` is missing, empty, or `null`, no label is inserted. The label is generated inside the result region, so changing `preface-text` updates existing results the next time `md-demo` runs.
 
 Python last-expression display is enabled by default. To capture only stdout and stderr, set `display: none`:
 
@@ -189,6 +191,12 @@ Rewrite config style without executing code:
 md-demo demo.md --clear --config-style hidden
 ```
 
+Print concise help:
+
+```bash
+md-demo --help
+```
+
 Print this manual:
 
 ```bash
@@ -226,16 +234,33 @@ python -m compileall -q src
 pytest
 ```
 
-Preview a document without modifying it:
+Write the generated Markdown to stdout without rewriting the source document:
 
 ```bash
 md-demo demo.md --output -
 ```
 
+This still executes the demo code. The code may modify files, services, or other external state even though the Markdown source is not rewritten.
+
 Clear generated result blocks without executing code:
 
 ```bash
 md-demo demo.md --clear --output -
+```
+
+## Repository agent guidance
+
+Repositories containing `md-demo` demos can include the following minimal guidance in `AGENTS.md`:
+
+```markdown
+## md-demo demos
+
+- The `md-demo` demos are [list the repository's demo files or directories here]. Do not leave this unspecified: agents need repository-specific paths to distinguish demos from ordinary Markdown.
+- Executable fenced code blocks are marked with `exe`, run top-to-bottom in one persistent runtime, and have their captured output written into generated result blocks.
+- Edit the demo prose and executable source blocks, not generated `md-demo` result blocks. Inspect the executable blocks before running them, regenerate output with `md-demo path/to/demo.md`, require a successful exit, and review the resulting diff.
+- Run only trusted demos because their code executes locally.
+- If the `md-demo` command is unavailable, install it with `pip install md-demo` or use the repository's documented development installation.
+- Use `md-demo --manual` when authoring or troubleshooting a demo requires more detail. Do not call it by default for unrelated repository work.
 ```
 
 ## Agent authoring checklist
@@ -247,10 +272,10 @@ md-demo demo.md --clear --output -
 - Use `setup` for hidden imports or startup code that executable blocks need.
 - Mark executable blocks with `exe`.
 - Put expected displayed values on stdout, stderr, or the final Python expression.
-- Leave generated result blocks immediately after their source block.
+- Let `md-demo` create, position, and replace generated result blocks.
 - Do not edit generated result blocks.
 - Handle intentional failures inside the code block.
 - Do not rely on interactive input.
-- Use `md-demo --output -` to preview generated Markdown before overwriting a document.
+- Use `md-demo --output -` to inspect generated Markdown without rewriting the source document, remembering that it still executes the demo code.
 - Run `python -m compileall -q src` and `pytest` after changing the tool.
 """
